@@ -17,9 +17,17 @@ defmodule SpectrumedWeb.TraitLive.Form do
 
       <.form for={@form} id="trait-form" phx-change="validate" phx-submit="save">
         <.input field={@form[:description]} type="textarea" label="Description" />
-        <ul>
-          <li :for={bullet <- @form[:bullets].value}>
-            <.input name="trait[bullets][]" value={bullet} type="text" phx-debounce="500" />
+        <ul class="mb-4">
+          <li
+            :for={{bullet, index} <- Enum.with_index(@form[:bullets].value)}
+            class="flex justify-start items-center gap-2"
+          >
+            <div class="grow">
+              <.input name="trait[bullets][]" value={bullet} type="text" phx-debounce="500" />
+            </div>
+            <div class="mb-2">
+              <.link phx-click="remove-bullet" phx-value-index={index}>X</.link>
+            </div>
           </li>
           <li>
             <.link phx-click={add_bullet_to(@form)}>
@@ -75,7 +83,6 @@ defmodule SpectrumedWeb.TraitLive.Form do
 
   @impl true
   def handle_event("validate", %{"trait" => trait_params}, socket) do
-    IO.inspect(trait_params)
     changeset = Traits.change_trait(socket.assigns.trait, trait_params)
     {:noreply, assign(socket, form: to_form(changeset, action: :validate))}
   end
@@ -85,9 +92,21 @@ defmodule SpectrumedWeb.TraitLive.Form do
   end
 
   def handle_event("add-bullet", %{"trait" => trait_params}, socket) do
-    IO.inspect(trait_params)
     bullets = List.insert_at(trait_params["bullets"] || [], -1, "")
     trait_params = Map.put(trait_params, "bullets", bullets)
+    changeset = Traits.change_trait(socket.assigns.trait, trait_params)
+    {:noreply, assign(socket, :form, to_form(changeset))}
+  end
+
+  def handle_event("remove-bullet", %{"index" => index}, socket) do
+    bullets =
+      Ecto.Changeset.get_field(socket.assigns.form.source, :bullets, [])
+      |> List.delete_at(String.to_integer(index))
+
+    trait_params =
+      socket.assigns.form.source.params
+      |> Map.put("bullets", bullets)
+
     changeset = Traits.change_trait(socket.assigns.trait, trait_params)
     {:noreply, assign(socket, :form, to_form(changeset))}
   end
